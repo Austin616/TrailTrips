@@ -1,69 +1,7 @@
-import Image from "next/image";
-
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
-}
+import Link from 'next/link';
+import { ArrowRight, ArrowUpRight, MapPin, Route, Sun, Mountain, Check, MoveUpRight } from 'lucide-react';
+import { photos, trails } from '@/lib/data/mock';
+import { TrailCard } from '@/components/trails/trail-card';
+import { CreateTripDialog } from '@/components/trips/create-trip-dialog';
+import { Button } from '@/components/ui/button';
+export default function Home(){return <main><section className="hero"><img className="hero-photo" src={photos.hero} alt="Sunlight falling across a quiet forest and mountain landscape"/><div className="hero-shade"/><div className="hero-content"><span className="hero-kicker"><span/> LESS LOGISTICS. MORE OUT THERE.</span><h1>Good trips start<br/>with a little <em>trail.</em></h1><p>The hikes. The drives. The places in between.<br/>Bring your next adventure together, beautifully.</p><div className="hero-buttons"><CreateTripDialog label="Plan your first trip"/><Button asChild variant="outline"><Link href="/explore">Explore the trails <ArrowUpRight size={16}/></Link></Button></div><div className="hero-note"><span className="mini-avatars"><i>AL</i><i>JM</i><i>SK</i></span><span>A little planning. A lot of possibility.</span></div></div><div className="hero-location"><MapPin size={15}/><div>Find your kind of nowhere<span>The Pacific Northwest</span></div></div><Link href="/trips/oregon-adventure" className="hero-preview"><div className="preview-top"><span className="preview-icon"><Route size={20}/></span><div><small>YOUR NEXT CHAPTER</small><strong>Oregon, a little wilder.</strong></div><ArrowUpRight size={19}/></div><div className="preview-route"><span>4 days</span><i/>3 waterfall hikes<i/><span>Endless possibility</span></div><div className="preview-bottom"><span><span className="green-dot"/> A plan with room to wander</span><span>View trip <ArrowRight size={13}/></span></div></Link></section><section className="value-strip"><p>All the details.<br/><strong>One great adventure.</strong></p><span><MapPin/>Find your next favorite place</span><span><Route/>Connect the dots of your trip</span><span><Sun/>Make the most of every day</span></section><section className="section"><div className="section-heading"><div><p className="eyebrow">GO SOMEWHERE GOOD</p><h2>Big landscapes. Bigger possibilities.</h2><p>Pick a place that pulls you outside. We’ll help with the rest.</p></div><Link className="text-link" href="/explore">Explore destinations <ArrowUpRight size={17}/></Link></div><div className="destinations">{[{name:'Oregon',tag:'Waterfalls, wild coast & forest trails',photo:photos.oregon,query:'Oregon',label:'THE PACIFIC NORTHWEST'},{name:'Yosemite',tag:'Granite giants & alpine mornings',photo:photos.yosemite,query:'Yosemite',label:'CALIFORNIA, UNTAMED'},{name:'Washington',tag:'Mountain air & a little more wonder',photo:photos.washington,query:'Washington',label:'TAKE THE SCENIC ROUTE'}].map(d=><Link className="destination-card" href={`/explore?destination=${d.query}`} key={d.name}><img src={d.photo} alt={`${d.name} wilderness`}/><div className="destination-overlay"/><span className="destination-label">{d.label}</span><div className="destination-content"><div><h3>{d.name}</h3><p>{d.tag}</p></div><span><ArrowUpRight size={22}/></span></div></Link>)}</div></section><section className="planner-feature section"><div className="feature-copy"><p className="eyebrow">A TRIP, NOT JUST A TRAIL</p><h2>Your days outside.<br/>Thoughtfully pieced together.</h2><p>Start with your basecamp. Add the trails you can’t miss. See your whole day take shape, from the first coffee to the last golden light.</p><ul><li><Check size={16}/> All your stops, in one simple itinerary</li><li><Check size={16}/> A home for every hike and hidden gem</li><li><Check size={16}/> Less tab-switching. More trail time.</li></ul><Link className="text-link" href="/trips/oregon-adventure">Take a look inside the planner <ArrowRight size={17}/></Link></div><Link href="/trips/oregon-adventure" className="feature-preview"><div className="flex items-center justify-between border-b border-stone-200 pb-4"><div><span className="eyebrow">OREGON ADVENTURE</span><h3 className="text-xl mt-1 font-semibold">A day chasing waterfalls</h3></div><span className="day-pill">Day 02</span></div><div className="sample-stop"><span className="stop-circle"><MapPin size={15}/></span><div><small>7:00 AM · YOUR BASECAMP</small><strong>Slow mornings in Hood River</strong></div></div><div className="sample-drive">41 min drive · A coffee for the road</div><div className="sample-stop"><img src={photos.oregon} alt="Forest trail"/><div><small>7:41 AM · FIRST STOP</small><strong>Wahclella Falls</strong><p>2.0 mi <span>·</span> Easy <span>·</span> 1 hr 20 min</p></div><MoveUpRight size={17}/></div><div className="sample-daylight"><Sun size={18}/><span>A full day of adventure. Room to breathe.</span></div><span className="preview-caption">Illustrative itinerary · timing is sample data</span></Link></section><section className="section trail-section"><div className="section-heading"><div><p className="eyebrow">WORTH GETTING YOUR BOOTS DIRTY</p><h2>A few trails to get you dreaming.</h2><p>Forest paths, falling water, and views that stay with you.</p></div><Link className="text-link" href="/explore">Explore all trails <ArrowUpRight size={17}/></Link></div><div className="trail-grid">{[trails[0],trails[4],trails[5]].map(t=><TrailCard trail={t} key={t.id}/>)}</div></section><section className="closing-banner"><Mountain size={34} strokeWidth={1.3}/><h2>The best part is getting out there.</h2><p>Let’s make a little room for your next adventure.</p><CreateTripDialog label="Start planning"/></section></main>}
