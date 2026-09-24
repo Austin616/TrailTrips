@@ -1,10 +1,19 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, ArrowRight, MapPin } from 'lucide-react';
-import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Plus } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { usePlanner } from '@/lib/store';
-import { photos } from '@/lib/data/mock';
-import type { LodgingLocation } from '@/lib/types';
-export function CreateTripDialog({label='Create trip'}:{label?:string}){const [open,setOpen]=useState(false);const router=useRouter();const create=usePlanner(s=>s.createTrip);return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button><Plus size={16}/>{label}</Button></DialogTrigger><DialogContent><span className="dialog-icon"><MapPin/></span><DialogTitle className="text-2xl font-semibold mt-4">Every adventure starts here.</DialogTitle><DialogDescription className="text-sm text-muted mt-2 mb-6">Pick your basecamp. Leave room for the unexpected.</DialogDescription><form className="space-y-4" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);const start=String(f.get('start'));const end=String(f.get('end'));const count=Math.round((Date.parse(end)-Date.parse(start))/86400000)+1;if(count<1||count>30){e.currentTarget.querySelector<HTMLInputElement>('[name=end]')?.setCustomValidity('Choose an end date within 30 days of your start date.');return;}const id=crypto.randomUUID();create({id,name:String(f.get('name')).trim(),destination:String(f.get('destination')).trim(),startDate:start,endDate:end,photo:photos.lake,lodging:{name:String(f.get('lodging')),type:f.get('type') as LodgingLocation['type'],coordinates:[-121.52,45.7]},days:Array.from({length:count},(_,i)=>({id:crypto.randomUUID(),date:new Date(Date.parse(start)+i*86400000).toISOString().slice(0,10),title:'A day to explore',stops:[]}))});setOpen(false);router.push(`/trips/${id}`)}}><label className="field">Trip name<input name="name" required maxLength={80} placeholder="e.g. Oregon Adventure"/></label><label className="field">Destination<input name="destination" required placeholder="City, region, or national park"/></label><div className="grid grid-cols-2 gap-4"><label className="field">Start date<input name="start" type="date" required/></label><label className="field">End date<input name="end" type="date" required onChange={e=>e.target.setCustomValidity('')}/></label></div><label className="field">Your basecamp<select name="type">{['Hotel / Airbnb','Campsite','Car camping','Custom location'].map(x=><option key={x}>{x}</option>)}</select></label><label className="field">Lodging location<input name="lodging" required placeholder="Name or address of your stay"/></label><p className="text-xs text-muted">Saved on this device. Location mapping is a preview.</p><Button className="w-full" type="submit">Let’s plan your trip <ArrowRight size={16}/></Button></form></DialogContent></Dialog>}
+import { useAuth } from '@/components/auth/auth-provider';
+import { SignInButton } from '@/components/auth/auth-gate';
+import { TripWizard } from './trip-wizard';
+export function CreateTripDialog({ label = 'Create trip' }: { label?: string }) {
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const router = useRouter();
+  const create = usePlanner(s => s.createTrip);
+  const { user } = useAuth();
+  if (!user) return <SignInButton/>;
+  return <Dialog open={open} onOpenChange={value => { if (!pending) setOpen(value); }}><DialogTrigger asChild><Button><Plus size={16}/>{label}</Button></DialogTrigger><DialogContent className="trip-wizard-dialog"><TripWizard onSave={async trip => { setPending(true); try { await create(trip); setOpen(false); router.push(`/trips/${trip.id}`); } finally { setPending(false); } }}/></DialogContent></Dialog>;
+}
