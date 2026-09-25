@@ -1,16 +1,43 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, CalendarDays, ChevronRight, Map, List, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, CalendarDays, MapPin, Map, Plus, Mountain, Route, BedDouble, X } from 'lucide-react';
 import { trails } from '@/lib/data/mock';
 import { usePlanner } from '@/lib/store';
 import { formatDate } from '@/lib/utils';
 import { TripMap } from '@/components/map/trip-map';
-import { TripTimeline, LodgingCard, DaySummary } from './trip-timeline';
+import { TripStop, TrailPicker } from './trip-timeline';
 import { Button } from '@/components/ui/button';
 import type { Trip } from '@/lib/types';
 import { AuthGate } from '@/components/auth/auth-gate';
-export function TripHeader({trip}:{trip:Trip}) {return <div className="planner-header"><div><Link href="/trips" className="back-link"><ArrowLeft size={14}/> My trips</Link><h1>{trip.name}</h1><div className="trip-meta"><span><MapPin size={14}/>{trip.destination}</span><span><CalendarDays size={14}/>{formatDate(trip.startDate)} – {formatDate(trip.endDate)}, {trip.startDate.slice(0,4)}</span></div></div><div className="planner-header-right"><span className="saved-indicator"><i/>Saved to your account</span><Button variant="outline" asChild><Link href="/explore">Discover trails <ArrowUpRight size={15}/></Link></Button></div></div>}
-export function TripDaySelector({trip,selected,onSelect}:{trip:Trip;selected:number;onSelect:(index:number)=>void}) {return <div className="day-selector" aria-label="Trip days">{trip.days.map((day,i)=><button key={day.id} aria-pressed={selected===i} onClick={()=>onSelect(i)} className={selected===i?'selected':''}><span>Day {String(i+1).padStart(2,'0')}</span><small>{formatDate(day.date)}</small>{day.stops.length>0&&<i/>}</button>)}</div>}
-export function Planner({id}:{id:string}) {return <AuthGate><UserPlanner id={id}/></AuthGate>}
-function UserPlanner({id}:{id:string}) {const stored=usePlanner(s=>s.trips);const loading=usePlanner(s=>s.loading);const error=usePlanner(s=>s.error);const load=usePlanner(s=>s.load);const trip=stored.find(t=>t.id===id);const [index,setIndex]=useState(0);const [showMap,setShowMap]=useState(false);const day=trip?.days[index]??trip?.days[0];const selectedTrails=useMemo(()=>day?.stops.flatMap(s=>{const t=trails.find(t=>t.id===s.trailId);return t?[t]:[]})??[],[day]);if(loading)return <main className="section page-main"><p role="status">Loading your trip…</p></main>;if(error)return <main className="section page-main"><p role="alert">{error}</p><Button onClick={()=>void load()}>Try again</Button></main>;if(!trip||!day)return <main className="section page-main"><div className="empty-state"><h1>This trip isn’t available.</h1><p>Choose a trip from your account or create a new adventure.</p><Button asChild><Link href="/trips">Back to my trips</Link></Button></div></main>;return <main className="planner-page"><TripHeader trip={trip}/><div className="planner-toolbar"><div className="planner-breadcrumb">Itinerary <ChevronRight size={13}/><span>{trip.days.length} days of possibility</span></div><span className="mock-label">SAMPLE DATA · TIMING PREVIEW</span><button className="mobile-map-toggle" onClick={()=>setShowMap(!showMap)}>{showMap?<List size={16}/>:<Map size={16}/>} {showMap?'Itinerary':'Map'}</button></div><div className={`planner-layout ${showMap?'show-map':''}`}><aside className="planner-sidebar"><TripDaySelector trip={trip} selected={index} onSelect={setIndex}/><div className="planner-scroll"><div className="day-heading"><p className="eyebrow">{new Date(day.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}</p><h2>{day.title}</h2><p>{day.stops.length?`${day.stops.length} stops · A good day to be outside`:'An open day, ready for adventure.'}</p></div><LodgingCard trip={trip}/><TripTimeline key={day.id} trip={trip} day={day}/><DaySummary day={day}/></div></aside><section aria-label="Trip map" className="planner-map"><TripMap trails={selectedTrails}/><div className="map-trip-card"><span className="map-card-icon"><MapPin size={21}/></span><div><strong>{trip.destination}</strong><p>Day {index+1} <span>·</span> {day.stops.length} stops on your itinerary</p></div></div></section></div></main>}
+
+export function Planner({ id }: { id: string }) { return <AuthGate><UserPlanner id={id}/></AuthGate>; }
+function UserPlanner({ id }: { id: string }) {
+  const { trips, loading, error, load } = usePlanner();
+  const trip = trips.find(t => t.id === id);
+  if (loading) return <main className="section page-main"><p role="status">Loading your trip…</p></main>;
+  if (error) return <main className="section page-main"><p role="alert">{error}</p><Button onClick={() => void load()}>Try again</Button></main>;
+  if (!trip) return <main className="section page-main"><div className="empty-state"><h1>This trip isn’t available.</h1><p>Choose a trip from your account or create a new adventure.</p><Button asChild><Link href="/trips">Back to my trips</Link></Button></div></main>;
+  return <TripItinerary key={trip.id} trip={trip}/>;
+}
+export function TripItinerary({ trip }: { trip: Trip }) {
+  const [index, setIndex] = useState(0);
+  const [showMap, setShowMap] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [selectedTrail, setSelectedTrail] = useState<string | null>(null);
+  const day = trip.days[index] ?? trip.days[0];
+  if (!day) return <main className="section page-main"><p>This trip has no days yet.</p><Link href="/trips">Back to my trips</Link></main>;
+  const selected = day.stops.flatMap(stop => { const trail = trails.find(t => t.id === stop.trailId); return trail ? [trail] : []; });
+  const miles = selected.reduce((sum, trail) => sum + trail.distance, 0);
+  const elevation = selected.reduce((sum, trail) => sum + trail.elevation, 0);
+  return <main className="itinerary-page"><Link href="/trips" className="back-link"><ArrowLeft size={15}/>All trips</Link><header className="itinerary-heading"><div><p className="eyebrow">A LITTLE PLANNING. A LOT OF POSSIBILITY.</p><h1>{trip.name}</h1><div className="itinerary-meta"><span><MapPin size={15}/>{trip.destination}</span><span><CalendarDays size={15}/>{formatDate(trip.startDate)} – {formatDate(trip.endDate)}, {trip.startDate.slice(0, 4)}</span></div></div><span className="account-saved"><i/>Saved to your account</span></header>
+    <div className="itinerary-day-tabs" aria-label="Choose a trip day">{trip.days.map((d, i) => <button key={d.id} aria-pressed={i === index} className={i === index ? 'selected' : ''} onClick={() => { setIndex(i); setPicking(false); setSelectedTrail(null); }}><span>Day {i + 1}</span><strong>{formatDate(d.date)}</strong><small>{d.stops.length ? `${d.stops.length} ${d.stops.length === 1 ? 'stop' : 'stops'}` : 'Open day'}</small></button>)}</div>
+    <div className="itinerary-content"><section className="itinerary-list"><div className="itinerary-day-heading"><div><p className="eyebrow">{new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })}</p><h2>Your day, your pace.</h2></div><Button size="sm" onClick={() => setPicking(!picking)}>{picking ? <><X size={15}/>Close</> : <><Plus size={15}/>Add a trail</>}</Button></div>
+      {picking && <TrailPicker key={day.id} tripId={trip.id} dayId={day.id}/>}
+      <div className="itinerary-basecamp"><span><BedDouble size={21}/></span><div><small>START & END HERE</small><strong>{trip.lodging.name}</strong><p>{trip.lodging.type}</p></div></div>
+      {day.stops.length ? <ol className="itinerary-stops">{day.stops.map((stop, i) => <li key={stop.id}><TripStop stop={stop} index={i} tripId={trip.id} dayId={day.id} onShowMap={() => { setSelectedTrail(stop.trailId); setShowMap(true); }}/></li>)}</ol> : <div className="itinerary-empty"><span><Mountain size={30}/></span><h3>A whole day of possibilities.</h3><p>Find a trail you love and add it here.<br/>We’ll keep your stops together.</p><Button variant="outline" onClick={() => setPicking(true)}><Plus size={16}/>Find your first trail</Button></div>}
+      {day.stops.length > 0 && <button className="itinerary-add-more" onClick={() => setPicking(true)}><Plus size={17}/>Add another trail</button>}
+    </section><aside className="itinerary-aside"><section className="itinerary-summary"><h3>Day {index + 1} at a glance</h3><div><span>Trail stops</span><strong>{day.stops.length}</strong></div><div><span><Route size={15}/>Total hiking</span><strong>{miles.toFixed(1)} mi</strong></div><div><span><Mountain size={15}/>Elevation gain</span><strong>{elevation.toLocaleString()} ft</strong></div><p>Trail distances are from our sample collection.</p><button aria-expanded={showMap} aria-controls="day-map" onClick={() => setShowMap(!showMap)}><Map size={17}/>{showMap ? 'Hide day map' : 'Show day map'}</button></section><p className="itinerary-tip">Start with the trails you can’t miss.<br/>Leave a little room for the unexpected.</p></aside></div>
+    {showMap && <section id="day-map" className="itinerary-map-section"><div><h2>Your day on the map</h2><button onClick={() => setShowMap(false)} aria-label="Close day map"><X size={19}/></button></div><div className="itinerary-real-map"><TripMap trails={selected} selectedTrailId={selectedTrail}/></div></section>}
+  </main>;
+}

@@ -1,20 +1,25 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { Car, MapPin, ArrowUpRight, Trash2, Plus, BedDouble, Route, Mountain, Sun, Sunset, Clock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { MapPin, Trash2, Plus, Check, Search, LoaderCircle } from 'lucide-react';
 import { trails } from '@/lib/data/mock';
 import { errorMessage, usePlanner } from '@/lib/store';
-import { TrailStats } from '@/components/trails/trail-card';
-import { Button } from '@/components/ui/button';
-import type { Trip, TripDay, TripStop as Stop } from '@/lib/types';
-export function LodgingCard({trip}:{trip:Trip}) {return <div className="lodging-card"><span className="lodging-icon"><BedDouble size={20}/></span><div><span className="eyebrow">YOUR BASECAMP</span><h3>{trip.lodging.name}</h3><p>{trip.lodging.type} · {trip.destination}</p></div></div>}
-export function DriveSegment({minutes}:{minutes:number}) {return <div className="drive-segment"><Car size={14}/><span>{minutes ? `${minutes} min drive` : 'Drive time not calculated'}</span><span className="drive-line"/></div>}
-export function TripStop({stop,index,tripId,dayId}:{stop:Stop;index:number;tripId:string;dayId:string}) {const trail=trails.find(t=>t.id===stop.trailId);const remove=usePlanner(s=>s.removeStop);const [pending,setPending]=useState(false);const [error,setError]=useState<string|null>(null);if(!trail)return null;return <motion.div initial={{opacity:0,y:8}} animate={{opacity:1,y:0}} transition={{duration:0.25,delay:index*0.05}} className="timeline-stop"><span className="timeline-number">{index+1}</span><div className="stop-time">{stop.start}</div><article className="stop-card"><Link href={`/trails/${trail.slug}`} className="stop-photo"><img src={trail.photo} alt={trail.name}/></Link><div className="stop-body"><div className="flex items-center justify-between gap-2"><span className={`difficulty inline-difficulty ${trail.difficulty.toLowerCase()}`}>{trail.difficulty} hike</span><button className="remove-stop" title="Remove stop" aria-label={`Remove ${trail.name}`} disabled={pending} onClick={async()=>{setPending(true);setError(null);try{await remove(tripId,dayId,stop.id)}catch(error){setError(errorMessage(error))}finally{setPending(false)}}}><Trash2 size={14}/></button></div><Link className="stop-title" href={`/trails/${trail.slug}`}>{trail.name}<ArrowUpRight size={16}/></Link><TrailStats trail={trail}/>{error&&<p role="alert" className="form-error">{error}</p>}<div className="stop-finish"><Clock size={12}/> Estimated finish <strong>{stop.finish}</strong></div></div></article></motion.div>}
-export function TripTimeline({trip,day}:{trip:Trip;day:TripDay}) {return <div className="trip-timeline"><div className="timeline-start"><span className="timeline-home"><MapPin size={15}/></span><span className="stop-time">YOUR STARTING POINT</span><h3>Leave {trip.lodging.name}</h3><p>A fresh start. A day of possibilities.</p></div>{day.stops.map((stop,i)=><div key={stop.id}><DriveSegment minutes={stop.driveMinutes}/><TripStop stop={stop} index={i} tripId={trip.id} dayId={day.id}/></div>)}<Button asChild variant="outline" className="add-stop"><Link href="/explore"><Plus size={17}/>{day.stops.length?'Add another stop':'Find your first trail'}</Link></Button></div>}
-export function DaySummary({day}:{day:TripDay}) {
- const selected=day.stops.map(s=>trails.find(t=>t.id===s.trailId)).filter(t=>!!t);
- const miles=selected.reduce((sum,t)=>sum+t.distance,0);
- const elevation=selected.reduce((sum,t)=>sum+t.elevation,0);
- return <section className="day-summary"><div className="flex items-center justify-between"><h3>Your day at a glance</h3><span>DAY SUMMARY</span></div><div className="summary-grid"><div><Route size={17}/><strong>{miles.toFixed(1)} <small>mi</small></strong><span>Hiking distance</span></div><div><Mountain size={17}/><strong>{elevation.toLocaleString()} <small>ft</small></strong><span>Elevation gain</span></div><div><Car size={17}/><strong>—</strong><span>Driving time</span></div></div><div className="sun-times"><span><Sun size={15}/>Sunrise <strong>—</strong></span><span><Sunset size={15}/>Sunset <strong>—</strong></span></div><div className="daylight-status"><Clock size={17}/><div>Your day is taking shape.<small>Driving and daylight calculations are coming later.</small></div></div><p className="summary-note">Distances and elevation are summed from sample trail data.</p></section>;
+import type { TripStop as Stop } from '@/lib/types';
+
+export function TripStop({ stop, index, tripId, dayId, onShowMap }: { stop: Stop; index: number; tripId: string; dayId: string; onShowMap: () => void }) {
+  const trail = trails.find(t => t.id === stop.trailId);
+  const remove = usePlanner(s => s.removeStop);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!trail) return null;
+  return <article className="itinerary-stop"><span className="itinerary-stop-number">{index + 1}</span><Link href={`/trails/${trail.slug}`} className="itinerary-stop-photo"><img src={trail.photo} alt={trail.name}/></Link><div className="itinerary-stop-copy"><span className={`difficulty inline-difficulty ${trail.difficulty.toLowerCase()}`}>{trail.difficulty}</span><Link href={`/trails/${trail.slug}`}><h3>{trail.name}</h3></Link><p>{trail.distance} mi <i>·</i> {trail.elevation.toLocaleString()} ft gain <i>·</i> {trail.duration}</p><a href="#day-map" onClick={onShowMap}><MapPin size={13}/>Show on map</a>{error && <p role="alert" className="form-error">{error}</p>}</div><button className="itinerary-remove" aria-label={`Remove ${trail.name}`} title="Remove trail" disabled={pending} onClick={async () => { setPending(true); setError(null); try { await remove(tripId, dayId, stop.id); } catch (error) { setError(errorMessage(error)); } finally { setPending(false); } }}>{pending ? <LoaderCircle className="wizard-spinner" size={16}/> : <Trash2 size={16}/>}</button></article>;
+}
+export function TrailPicker({ tripId, dayId }: { tripId: string; dayId: string }) {
+  const [search, setSearch] = useState('');
+  const [pending, setPending] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<string[]>([]);
+  const add = usePlanner(s => s.addTrail);
+  const filtered = trails.filter(t => `${t.name} ${t.location}`.toLowerCase().includes(search.toLowerCase()));
+  return <section className="inline-trail-picker" aria-label="Add a trail to this day"><label><Search size={17}/><input autoFocus aria-label="Find a trail for this day" placeholder="Find a trail…" value={search} onChange={e => setSearch(e.target.value)}/></label><div className="picker-results">{filtered.map(trail => <div className="picker-trail" key={trail.id}><img src={trail.photo} alt=""/><div><strong>{trail.name}</strong><span>{trail.distance} mi · {trail.difficulty}</span></div><button disabled={!!pending || added.includes(trail.id)} aria-label={`Add ${trail.name} to this day`} onClick={async () => { setPending(trail.id); setError(null); try { await add(tripId, dayId, trail.id); setAdded(previous => [...previous, trail.id]); } catch (error) { setError(errorMessage(error)); } finally { setPending(null); } }}>{pending === trail.id ? <LoaderCircle size={17} className="wizard-spinner"/> : added.includes(trail.id) ? <Check size={17}/> : <Plus size={17}/>}</button></div>)}{!filtered.length && <p>No matching trails. Try another name.</p>}</div>{error && <p role="alert" className="form-error">{error}</p>}</section>;
 }

@@ -1,5 +1,70 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Compass, Layers, MapPin, Mountain, Plus, Minus } from 'lucide-react';
+import { Map, MapPin, ExternalLink, RotateCcw } from 'lucide-react';
 import type { Trail } from '@/lib/types';
-export function TripMap({trails}:{trails:Trail[]}){const ref=useRef<HTMLDivElement>(null);const [failed,setFailed]=useState(false);const [zoom,setZoom]=useState(1);const token=process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;useEffect(()=>{if(!token||!ref.current)return;let disposed=false;let map:import('mapbox-gl').Map|undefined;import('mapbox-gl').then(({default:mapbox})=>{if(disposed||!ref.current)return;map=new mapbox.Map({container:ref.current,accessToken:token,style:'mapbox://styles/mapbox/outdoors-v12',center:trails[0]?.coordinates??[-121.9,45.61],zoom:10});map.addControl(new mapbox.NavigationControl(),'top-right');map.on('error',()=>setFailed(true));trails.forEach((t,i)=>{const el=document.createElement('div');el.className='mapbox-stop';el.textContent=String(i+1);new mapbox.Marker(el).setLngLat(t.coordinates).setPopup(new mapbox.Popup().setText(t.name)).addTo(map!)});if(trails.length>1){const bounds=new mapbox.LngLatBounds();trails.forEach(t=>bounds.extend(t.coordinates));map.fitBounds(bounds,{padding:80,maxZoom:11})}}).catch(()=>setFailed(true));return()=>{disposed=true;map?.remove()}},[token,trails]);return <div className="trip-map">{token&&!failed?<div ref={ref} className="absolute inset-0"/>:<><div className="map-terrain" style={{transform:`scale(${zoom})`}}><svg viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><pattern id="contours" width="190" height="170" patternUnits="userSpaceOnUse"><path d="M-20 60 Q80 -50 180 40 T240 170 M-30 80 Q80 -30 180 60 T240 190 M-30 100 Q80 -10 180 80 T240 210 M-30 120 Q80 10 180 100 T240 230" fill="none" stroke="#c3ceb8" strokeWidth="1"/></pattern></defs><rect width="800" height="800" fill="#e5e9db"/><path d="M0 0H430L260 250 340 410 80 600H0Z M800 230L620 380 680 600 500 800H800Z" fill="#d4dfc8"/><rect width="800" height="800" fill="url(#contours)"/><path d="M-40 410 Q140 290 330 340 T840 245" fill="none" stroke="#b5d3d5" strokeWidth="45"/><path d="M-40 410 Q140 290 330 340 T840 245" fill="none" stroke="#cee2e1" strokeWidth="30"/><path d="M-30 457 Q155 350 355 389 T840 307" fill="none" stroke="#faf9f0" strokeWidth="12"/><path d="M-30 457 Q155 350 355 389 T840 307" fill="none" stroke="#c6bfa2" strokeWidth="2"/><path d="M155 410 Q190 390 255 407 T420 391 L520 360" fill="none" stroke="#386b54" strokeWidth="4" strokeDasharray="7 7"/><path d="M140 410L110 510 190 615 M340 390L365 485 315 560 M520 360L570 440 620 570" fill="none" stroke="#f9f8ee" strokeWidth="6"/></svg><span className="map-label river">Columbia River</span><span className="map-label state">WASHINGTON</span><span className="map-label oregon">OREGON</span><span className="map-label forest"><Mountain size={22}/> Columbia River Gorge<br/>National Scenic Area</span>{trails.slice(0,6).map((t,i)=><div key={t.id+ i} className="map-marker" style={{left:`${20+i*12}%`,top:`${53-(i%3)*6}%`}}><span>{i+1}</span><small>{t.name}</small></div>)}</div><div className="map-disclaimer"><MapPin size={14}/>Illustrative map · not for navigation</div><div className="map-controls"><button aria-label="Zoom in illustrative map" onClick={()=>setZoom(z=>Math.min(1.6,z+0.15))}><Plus size={18}/></button><button aria-label="Zoom out illustrative map" onClick={()=>setZoom(z=>Math.max(1,z-0.15))}><Minus size={18}/></button></div></>}<div className="map-badge"><Layers size={15}/>{token&&!failed?'Outdoors':'Terrain preview'}</div><span className="map-compass"><Compass size={24}/></span></div>}
+
+type MapTrail = Pick<Trail, 'id' | 'name' | 'slug' | 'coordinates'>;
+export function TripMap({ trails, selectedTrailId }: { trails: Trail[]; selectedTrailId?: string | null }) {
+  const container = useRef<HTMLDivElement>(null);
+  const instance = useRef<import('mapbox-gl').Map | null>(null);
+  const markers = useRef<{ id: string; marker: import('mapbox-gl').Marker }[]>([]);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const token = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  // A stable dependency keeps the map intact when unrelated itinerary state changes.
+  const mapData = JSON.stringify(trails.map(({ id, name, slug, coordinates }) => ({ id, name, slug, coordinates })));
+  useEffect(() => {
+    if (!token || !container.current) return;
+    const locations: MapTrail[] = JSON.parse(mapData);
+    if (!locations.length) return;
+    let disposed = false;
+    let map: import('mapbox-gl').Map | undefined;
+    let observer: ResizeObserver | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    import('mapbox-gl').then(({ default: mapbox }) => {
+      if (disposed || !container.current) return;
+      setStatus('loading');
+      if (!mapbox.supported()) { setStatus('failed'); return; }
+      map = new mapbox.Map({ container: container.current, accessToken: token, style: 'mapbox://styles/mapbox/outdoors-v12', center: locations[0].coordinates, zoom: 11, cooperativeGestures: true });
+      instance.current = map;
+      map.addControl(new mapbox.NavigationControl({ visualizePitch: true }), 'top-right');
+      map.addControl(new mapbox.ScaleControl({ unit: 'imperial' }), 'bottom-left');
+      timeout = setTimeout(() => { if (!disposed) setStatus('failed'); }, 15000);
+      map.on('load', () => { clearTimeout(timeout); if (!disposed) setStatus('ready'); });
+      map.on('error', event => {
+        // A bad token/style cannot render a map; isolated tile errors can recover.
+        if ('status' in event.error && [401, 403].includes(Number(event.error.status))) { clearTimeout(timeout); if (!disposed) setStatus('failed'); }
+      });
+      markers.current = locations.map((trail, index) => {
+        const pin = document.createElement('button');
+        pin.className = 'real-map-pin'; pin.textContent = String(index + 1);
+        pin.setAttribute('aria-label', `Show ${trail.name}`);
+        const content = document.createElement('div'); content.className = 'trail-map-popup';
+        const title = document.createElement('strong'); title.textContent = trail.name;
+        const link = document.createElement('a'); link.href = `/trails/${encodeURIComponent(trail.slug)}`; link.textContent = 'View trail →';
+        content.append(title, link);
+        const marker = new mapbox.Marker({ element: pin }).setLngLat(trail.coordinates).setPopup(new mapbox.Popup({ offset: 22 }).setDOMContent(content)).addTo(map!);
+        return { id: trail.id, marker };
+      });
+      if (locations.length > 1) {
+        const bounds = new mapbox.LngLatBounds(); locations.forEach(trail => bounds.extend(trail.coordinates));
+        map.fitBounds(bounds, { padding: 65, maxZoom: 12, duration: 0 });
+      }
+      observer = new ResizeObserver(() => map?.resize()); observer.observe(container.current);
+    }).catch(() => { if (!disposed) setStatus('failed'); });
+    return () => { disposed = true; clearTimeout(timeout); observer?.disconnect(); markers.current = []; instance.current = null; map?.remove(); };
+  }, [token, mapData, attempt]);
+  useEffect(() => {
+    if (status !== 'ready' || !selectedTrailId || !instance.current) return;
+    const selected = markers.current.find(item => item.id === selectedTrailId);
+    if (!selected) return;
+    markers.current.forEach(item => item.marker.getPopup()?.remove());
+    instance.current.flyTo({ center: selected.marker.getLngLat(), zoom: 12, essential: false });
+    selected.marker.togglePopup();
+  }, [selectedTrailId, status, mapData]);
+  const first = trails.find(t => t.id === selectedTrailId) ?? trails[0];
+  const unavailable = !token || status === 'failed';
+  return <div className="trip-map live-trail-map"><div ref={container} className="map-canvas" aria-label="Interactive trail map"/>
+    {!trails.length ? <div className="map-empty"><MapPin size={28}/><h3>No trail locations yet</h3><p>Add a trail to see it on the map.</p></div> : unavailable ? <div className="map-empty"><Map size={30}/><h3>{token ? 'The map couldn’t load.' : 'Interactive map coming soon.'}</h3><p>{token ? 'Check your connection and try again.' : 'You can still explore this trail’s location.'}</p>{token && <button onClick={() => { setStatus('loading'); setAttempt(n => n + 1); }}><RotateCcw size={15}/>Try again</button>}<a href={`https://www.google.com/maps/search/?api=1&query=${first.coordinates[1]},${first.coordinates[0]}`} target="_blank" rel="noopener noreferrer">Open {first.name} in Google Maps <ExternalLink size={14}/></a></div> : <>{status === 'loading' && <div className="map-loading" role="status">Loading the outdoors…</div>}<span className="live-map-caption">Sample trail locations · map by Mapbox</span></>}
+  </div>;
+}

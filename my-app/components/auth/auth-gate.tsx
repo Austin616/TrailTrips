@@ -4,10 +4,10 @@ import { Mountain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from './auth-provider';
 
-export function SignInButton() {
+export function SignInButton({ label = 'Sign in to get started' }: { label?: string }) {
   const { signIn, loading } = useAuth();
   const [pending, setPending] = useState(false);
-  return <Button disabled={loading || pending} onClick={async () => { setPending(true); try { await signIn(); } finally { setPending(false); } }}>{loading ? 'Loading…' : pending ? 'Connecting…' : 'Sign in to get started'}</Button>;
+  return <Button disabled={loading || pending} onClick={async () => { setPending(true); try { await signIn(); } finally { setPending(false); } }}>{loading ? 'Loading…' : pending ? 'Connecting…' : label}</Button>;
 }
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

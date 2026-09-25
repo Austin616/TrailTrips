@@ -22,7 +22,7 @@ Google setup reference: https://supabase.com/docs/guides/auth/social-login/auth-
 - `trips.user_id` references `auth.users`. `trip_days` belong to trips; `trip_stops` belong to days and reference the mock catalog's trail IDs.
 - Row-level security on all three tables prevents anonymous access and isolates each user's rows. The `create_trip` function uses caller permissions and creates trips/days in one transaction.
 - Auth uses `@supabase/ssr` browser/server helpers with PKCE and cookie-based sessions. `proxy.ts` verifies and refreshes sessions with `getClaims()`, and `/auth/callback` exchanges the OAuth code on the server. Private trip requests still use the signed-in user’s token and database RLS. Server-side data fetching should use `lib/supabase/server.ts` and verify identity before returning private data.
-- Explore and trail details are public. Adding trails and creating/viewing personal trips require sign-in. The profile menu shows account details, navigation, and sign-out. Trip creation uses a four-step animated wizard with a review before saving.
+- Explore and trail details are public. Adding trails and creating/viewing personal trips require sign-in. The profile menu links to `/profile` for account details. Trip creation lives at `/trips/new` with four animated steps and a review before saving. The itinerary shows one day at a time with inline trail selection and an optional map.
 - Signing out or changing accounts clears in-memory trip data. The previous shared `trailtrips-planner-v1` local-storage cache is discarded.
 - Create/add/remove wait for database success and display errors. Stops are separate rows, so concurrent additions do not overwrite the entire itinerary.
 - Basecamp coordinates, driving times, and daylight calculations are not implemented; they do not inherit Oregon's demo values.
@@ -32,3 +32,9 @@ Google setup reference: https://supabase.com/docs/guides/auth/social-login/auth-
 `npm test` executes the production migration against embedded PostgreSQL (PGlite) with Supabase-compatible auth roles, checking anonymous denial, cross-user read/write isolation, ownership transfer prevention, and transaction rollback. Store tests check account-switch races and failed writes. Run `npm run lint` and `npm run build` as well. If the local sandbox blocks Turbopack worker ports, `npm run build -- --webpack` is the supported fallback.
 
 After cloud configuration, test with two Google accounts: create/add/remove a trip stop, refresh to confirm persistence, sign out, sign into the second account, and confirm it cannot see or modify the first account's trips. Real Google OAuth needs configured Supabase/Google credentials and cannot be validated by the local SQL tests.
+
+## Maps
+
+The app uses Mapbox GL JS with the Outdoors v12 style. Set `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` to a public Mapbox token (`pk.`) in `.env.local`, then restart the dev server. Configure URL restrictions for localhost and the production domain in your Mapbox account. No secret Mapbox token belongs in the browser. The map canvas sizing is explicitly scoped to override Mapbox’s default relative positioning.
+
+Maps show actual coordinates from the sample trail catalog, numbered clickable markers, trail-detail links, automatic bounds, zoom/compass controls, and attribution. Without a token, or if the map cannot load, a clear placeholder offers a real Google Maps location link. No illustrative terrain or invented routes are displayed. Routes, drive times, and basecamp geocoding remain future work. Mapbox usage is billed separately by Mapbox.
